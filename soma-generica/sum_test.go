@@ -39,3 +39,9 @@ func TestSum(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkSum(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		somagenerica.Sum[int](float64(1000.1), 1000)
+	}
+}
