@@ -3,7 +3,7 @@ package somagenerica_test
 import (
 	"testing"
 
-	"github.com/flan6/somagenerica"
+	"github.com/flan6/estudos/somagenerica"
 )
 
 func TestSum(t *testing.T) {

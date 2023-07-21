@@ -1,4 +1,4 @@
-module github.com/flan6/somagenerica
+module github.com/flan6/estudos/somagenerica
 
 go 1.20
 
