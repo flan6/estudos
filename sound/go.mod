@@ -1,4 +1,4 @@
-module audioimage
+module libsound
 
 go 1.21.0
 
