@@ -1,105 +1,108 @@
 package main
 
 import (
-	"fmt"
 	"image"
-	"image/color"
 	"image/color/palette"
 	"image/draw"
 	"image/gif"
-	"image/png"
 	"log"
-	"math"
-	"math/rand"
 	"os"
+	"sync"
 	"time"
 
-	"golang.org/x/exp/constraints"
+	"libimage/shader"
 )
 
 func main() {
 	const (
-		width, height = 300, 300
+		width, height = 640, 360
 		frames        = 100
 	)
 
-	rand.Seed(time.Now().UnixNano())
 	logger := log.Default()
 	logger.SetFlags(log.Ltime | log.Lshortfile)
 	logger.SetPrefix("IMAGE: ")
 
-	anim := gif.GIF{LoopCount: 1}
+	start := time.Now()
+	imgs := []image.Image{}
 
-	for i := 0; i < frames; i++ {
-		img := image.NewRGBA(image.Rect(0, 0, width, height))
+	execTime := measureExecutionTime(func() {
+		imgs = genImages(frames, width, height, shader.Circles)
+	})
+	logger.Println("genImages in", execTime)
 
-		for y := 0; y < height; y++ {
-			for x := 0; x < width; x++ {
-				scaledY := (y) * (255) / (height)
-				scaledX := (x) * (255) / (width)
-
-				r := uint8(scaledX)
-				g := uint8(min(math.Pow(float64(scaledY), 0.999), 255))
-				b := uint8(min(math.Pow(float64(scaledX+scaledY), 0.9), 255))
-
-				img.Set(x, y, color.NRGBA{r, g, b, uint8(255)})
-			}
-		}
-
-		scaledI := (i) * (255) / (frames)
-
-		for x := -50; x < 50; x++ {
-			for y := -50; y < 50; y++ {
-				if x*x+y*y < 50*50 {
-					img.Set(width/2+x, height/2+y, color.NRGBA{
-						R: uint8(scaledI),
-						G: uint8(scaledI),
-						B: uint8(255),
-						A: 255,
-					})
-				}
-			}
-		}
-
-		anim.Image = append(anim.Image, rgbaToPaletted(img))
-		anim.Delay = append(anim.Delay, 1)
-
-		pngIMG, err := os.Create(fmt.Sprintf("imgs/image_%d.png", i))
+	execTime = measureExecutionTime(func() {
+		_, err := createGIF(imgs, "save/")
 		if err != nil {
 			logger.Fatal(err)
 		}
+	})
+	logger.Println("createGIF in", execTime)
 
-		err = png.Encode(pngIMG, img)
-		if err != nil {
-			logger.Fatal(err)
-		}
-		pngIMG.Close()
-	}
-
-	gitAnimation, err := os.Create("animation.gif")
-	if err != nil {
-		logger.Fatal(err)
-	}
-	defer gitAnimation.Close()
-
-	if err := gif.EncodeAll(gitAnimation, &anim); err != nil {
-		logger.Fatal(err)
-	}
-
-	logger.Println("Done")
+	logger.Println("Done in", time.Since(start))
 }
 
-func min[T constraints.Ordered](x, y T) T {
-	if x < y {
-		return x
-	}
-
-	return y
-}
-
-func rgbaToPaletted(rgbaImg *image.RGBA) *image.Paletted {
+func rgbaToPaletted(rgbaImg image.Image) *image.Paletted {
 	palettedImg := image.NewPaletted(rgbaImg.Bounds(), palette.Plan9)
 	draw.Draw(palettedImg, palettedImg.Rect, rgbaImg, rgbaImg.Bounds().Min, draw.Over)
 
 	return palettedImg
+}
+
+func genImages(count, width, height int, fn shader.Shader) []image.Image {
+	imgs := make([]image.Image, count)
+	wg := sync.WaitGroup{}
+
+	for i := 0; i < count; i++ {
+		wg.Add(1)
+		i := i
+		go func() {
+			img := image.NewPaletted(image.Rect(0, 0, width, height), palette.Plan9)
+
+			for y := 0; y < height; y++ {
+				for x := 0; x < width; x++ {
+					img.Set(x, y, fn(image.Point{X: x, Y: y}, img.Bounds(), i))
+				}
+			}
+
+			imgs[i] = img
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+	return imgs
+}
+
+func createGIF(imgs []image.Image, path string) (gif.GIF, error) {
+	const (
+		rate    = 70
+		gifName = "animation.gif"
+	)
+
+	anim := gif.GIF{LoopCount: 0}
+	anim.Image = make([]*image.Paletted, 0, len(imgs))
+
+	for _, img := range imgs {
+		anim.Image = append(anim.Image, img.(*image.Paletted))
+		anim.Delay = append(anim.Delay, 1000/rate)
+	}
+
+	gitAnimation, err := os.Create(path + gifName)
+	if err != nil {
+		return anim, err
+	}
+	defer gitAnimation.Close()
+
+	if err := gif.EncodeAll(gitAnimation, &anim); err != nil {
+		return anim, err
+	}
+
+	return anim, nil
+}
+
+func measureExecutionTime(fn func()) time.Duration {
+	start := time.Now()
+	fn()
+	return time.Since(start)
 }
