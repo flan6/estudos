@@ -3,7 +3,7 @@
 Repositório para estudos em go.
 
 ## IMAGE
-Estudo de geração de imagens, gifs e outros em go.
+Estudo de geração de imagens e gifs.
 
 ## SOUND
-Estudo de leitura, escrita e geração de áudios em go.
+Estudo de leitura, escrita e geração de áudios.
