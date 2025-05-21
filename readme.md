@@ -15,3 +15,7 @@ Estudo de leitura, escrita e geração de áudios.
 
 Implementações de varios algoritmos e estruturas de dados em go.
 [Readme](data-algo/readme.md)
+
+## SEIGO
+
+Editor de saves que converte arquivos es3 usados na unity game engine em json e vice-versa
